@@ -1,4 +1,15 @@
-import nltk_download  
+import nltk
+import os
+
+NLTK_DATA_DIR = os.path.join(os.path.dirname(__file__), "nltk_data")
+
+# Ensure the custom path is added
+nltk.data.path.append(NLTK_DATA_DIR)
+
+# Download required packages to local folder
+nltk.download("punkt", download_dir=NLTK_DATA_DIR)
+nltk.download("stopwords", download_dir=NLTK_DATA_DIR)
+
 
 import streamlit as st
 import os
