@@ -1,20 +1,20 @@
 import nltk
 import os
 
+# Set custom NLTK data directory
 NLTK_DATA_DIR = os.path.join(os.path.dirname(__file__), "nltk_data")
-
-# Ensure the custom path is added
 nltk.data.path.append(NLTK_DATA_DIR)
 
-# Download required packages to local folder
-nltk.download("punkt", download_dir=NLTK_DATA_DIR)
-nltk.download("stopwords", download_dir=NLTK_DATA_DIR)
-
+# Try importing required packages and handle missing ones
+try:
+    nltk.data.find("tokenizers/punkt")
+    nltk.data.find("corpora/stopwords")
+except LookupError:
+    nltk.download("punkt", download_dir=NLTK_DATA_DIR)
+    nltk.download("stopwords", download_dir=NLTK_DATA_DIR)
 
 import streamlit as st
-import os
 import re
-import nltk
 import numpy as np
 import pandas as pd
 from io import StringIO
@@ -25,10 +25,6 @@ from sklearn.metrics import precision_score, recall_score
 from PyPDF2 import PdfReader
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
-
-# Download necessary NLTK data
-nltk.download('punkt')
-nltk.download('stopwords')
 
 # ==== Preprocessing Components ====
 stop_words = set(stopwords.words('english'))
