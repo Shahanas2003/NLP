@@ -1,0 +1,122 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from rank_bm25 import BM25Okapi
+from sklearn.metrics import precision_score, recall_score
+from textblob import TextBlob
+import re
+import nltk
+
+# Download necessary NLTK data
+nltk_packages = ['punkt', 'brown', 'averaged_perceptron_tagger']
+for package in nltk_packages:
+    try:
+        nltk.data.find(f'tokenizers/{package}')
+    except LookupError:
+        nltk.download(package)
+
+# ===== Document Ingestion and Preprocessing =====
+documents = [
+    "The cat sat on the mat.",
+    "Dogs are friendly animals.",
+    "The sun rises in the east.",
+    "Artificial Intelligence is transforming the world.",
+    "OpenAI developed ChatGPT."
+]
+doc_ids = list(range(len(documents)))
+
+def preprocess(text):
+    return re.findall(r"\w+", text.lower())
+
+tokenized_docs = [preprocess(doc) for doc in documents]
+
+# ===== Indexing =====
+tfidf_vectorizer = TfidfVectorizer()
+tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
+
+bm25 = BM25Okapi(tokenized_docs)
+
+# ===== Streamlit UI =====
+st.set_page_config(page_title="IR System App", layout="wide")
+st.title("Information Retrieval System with TF-IDF & BM25")
+
+query = st.text_input("Enter your query:")
+method = st.radio("Choose Ranking Method:", ["TF-IDF", "BM25"], horizontal=True)
+top_k = st.slider("Top-K Results", 1, 10, 3)
+
+# ===== Retrieval and Scoring =====
+def retrieve_tfidf(query):
+    query_vec = tfidf_vectorizer.transform([query])
+    scores = np.dot(tfidf_matrix, query_vec.T).toarray().ravel()
+    ranked = np.argsort(scores)[::-1]
+    return [(doc_id, scores[doc_id]) for doc_id in ranked[:top_k]]
+
+def retrieve_bm25(query):
+    query_tokens = preprocess(query)
+    scores = bm25.get_scores(query_tokens)
+    ranked = np.argsort(scores)[::-1]
+    return [(doc_id, scores[doc_id]) for doc_id in ranked[:top_k]]
+
+# ===== Sentiment Analysis =====
+def get_sentiment_label(text):
+    polarity = TextBlob(text).sentiment.polarity
+    if polarity > 0:
+        return ("Positive", "green")
+    elif polarity < 0:
+        return ("Negative", "red")
+    return ("Neutral", "gray")
+
+# ===== Summarization Placeholder =====
+def summarize_document(text):
+    if len(text.split()) < 5:
+        return "Summary Unavailable"
+    return " ".join(text.split()[:5]) + "..."
+
+# ===== Evaluation Metrics (Dummy Ground Truth) =====
+ground_truth = {
+    "cat": [0],
+    "dogs": [1],
+    "sun": [2],
+    "intelligence": [3],
+    "openai": [4]
+}
+
+def evaluate_results(results, query):
+    relevant = ground_truth.get(query.lower(), [])
+    retrieved = [doc_id for doc_id, _ in results]
+    y_true = [1 if doc_id in relevant else 0 for doc_id in retrieved]
+    y_pred = [1] * len(retrieved)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    return precision, recall
+
+# ===== Display Results =====
+if query:
+    results = retrieve_tfidf(query) if method == "TF-IDF" else retrieve_bm25(query)
+
+    st.subheader("Top-K Retrieved Results")
+    for doc_id, score in results:
+        text = documents[doc_id]
+        highlighted = re.sub(f"(?i)({query})", r"**\1**", text)
+        sentiment, color = get_sentiment_label(text)
+        summary = summarize_document(text)
+
+        st.markdown(f"**Doc #{doc_id}** — Score: {score:.4f}")
+        st.markdown(f":{color}[Sentiment: {sentiment}]")
+        st.markdown(f"Text: {highlighted}")
+        st.markdown(f"Summary: {summary}")
+        st.markdown("---")
+
+    precision, recall = evaluate_results(results, query)
+    st.metric("Precision@K", f"{precision:.2f}")
+    st.metric("Recall@K", f"{recall:.2f}")
+
+# ===== Logs and Analysis Panel =====
+with st.expander("Performance Logs / Analysis"):
+    st.write("Tokenized Documents:", tokenized_docs)
+    st.write("TF-IDF Features:", tfidf_vectorizer.get_feature_names_out())
+    st.write("BM25 Document Scores (IDF):", bm25.idf)
+
+# ===== Footer =====
+st.caption("This app runs on both local machines and platforms like Google Colab. Keep dependencies minimal for low-resource compatibility.")
