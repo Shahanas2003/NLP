@@ -1,3 +1,5 @@
+import nltk_download  
+
 import streamlit as st
 import os
 import re
